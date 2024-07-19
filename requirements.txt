@@ -1,3 +1,4 @@
 telepot
 beautifulsoup4
 requests
+async_timeout
