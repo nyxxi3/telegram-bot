@@ -1,10 +1,6 @@
-import asyncio
-import telepot
-import telepot.aio
-from telepot.aio.loop import MessageLoop
-from pprint import pprint
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
+import os
 
 # Define the web scraping function
 def scrape_news():
@@ -23,37 +19,26 @@ def scrape_news():
     
     return news_list
 
-async def handle(msg):
-    global chat_id
-    # These are some useful variables
-    content_type, chat_type, chat_id = telepot.glance(msg)
-    # Log variables
-    print(content_type, chat_type, chat_id)
-    pprint(msg)
-    username = msg['chat']['first_name']
-    
-    # Check that the content type is text and not the starting
-    if content_type == 'text':
-        if msg['text'] == '/news':
-            await send_news()
-        else:
-            await bot.sendMessage(chat_id, 'Send /news to get the latest news.')
+# Function to send a message via Telegram
+def send_telegram_message(message):
+    TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Store your token in Lambda environment variables
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')  # Store the chat ID in environment variables
+    url = f'https://api.telegram.org/bot{TOKEN}/sendMessage'
+    payload = {'chat_id': chat_id, 'text': message}
+    requests.post(url, json=payload)
 
-async def send_news():
+# Lambda function handler
+def lambda_handler(event, context):
     news_list = scrape_news()
+
     if news_list:
         for title, date, link in news_list:
             message = f"Title: {title}\nDate: {date}\nLink: {link}"
-            await bot.sendMessage(chat_id, message)
+            send_telegram_message(message)
     else:
-        await bot.sendMessage(chat_id, 'No news found.')
-
-# Program startup
-TOKEN = '5914144849:AAGb6lfRC3QrDiX8255xodEY9waH4tGYKcE'
-bot = telepot.aio.Bot(TOKEN)
-loop = asyncio.get_event_loop()
-loop.create_task(MessageLoop(bot, handle).run_forever())
-print('Listening ...')
-
-# Keep the program running
-loop.run_forever()
+        send_telegram_message('No news found.')
+    
+    return {
+        'statusCode': 200,
+        'body': 'News checked and messages sent'
+    }
